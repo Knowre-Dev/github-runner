@@ -1,0 +1,102 @@
+- name: /data 디렉토리 생성
+  file:
+    path: /data
+    state: directory
+    mode: '0755'
+
+- name: 패키지 캐시 업데이트
+  yum:
+    update_cache: yes
+
+- name: 사용자를 docker 그룹에 추가
+  user:
+    name: "{{ target_user }}"
+    groups: docker
+    append: yes
+
+- name: 필수 패키지 설치 (git, make, curl)
+  yum:
+    name:
+      - git
+      - make
+      - curl
+    state: present
+
+- name: Microsoft 패키지 저장소 키 추가
+  rpm_key:
+    key: https://packages.microsoft.com/keys/microsoft.asc
+    state: present
+
+- name: Microsoft 패키지 저장소 추가
+  yum_repository:
+    name: packages-microsoft-com-prod
+    description: Microsoft packages
+    baseurl: "https://packages.microsoft.com/rhel/{{ ansible_distribution_major_version }}/prod"
+    enabled: yes
+    gpgcheck: yes
+    gpgkey: https://packages.microsoft.com/keys/microsoft.asc
+
+- name: dotnet 6.0 설치
+  yum:
+    name: dotnet-sdk-6.0
+    state: present
+    update_cache: yes
+
+- name: perl 설치 (체크섬 검증용)
+  yum:
+    name: perl
+    state: present
+
+- name: actions-runner 디렉토리 생성
+  file:
+    path: "/home/{{ target_user }}/actions-runner"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+
+- name: GitHub Actions runner 다운로드
+  get_url:
+    url: "https://github.com/actions/runner/releases/download/v{{ actions_runner_version }}/actions-runner-linux-{{ architecture }}-{{ actions_runner_version }}.tar.gz"
+    dest: "/home/{{ target_user }}/actions-runner/actions-runner-linux-{{ architecture }}-{{ actions_runner_version }}.tar.gz"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0644'
+
+- name: 다운로드한 파일의 체크섬 검증
+  shell: |
+    echo "{{ actions_runner_checksum }}  actions-runner-linux-{{ architecture }}-{{ actions_runner_version }}.tar.gz" | shasum -a 256 -c
+  args:
+    chdir: "/home/{{ target_user }}/actions-runner"
+  become_user: "{{ target_user }}"
+
+- name: GitHub Actions runner 압축 해제
+  unarchive:
+    src: "/home/{{ target_user }}/actions-runner/actions-runner-linux-{{ architecture }}-{{ actions_runner_version }}.tar.gz"
+    dest: "/home/{{ target_user }}/actions-runner"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    remote_src: yes
+
+- name: GitHub Actions runner 설정
+  shell: |
+    ./config.sh --url {{ github_repo_url }} --token {{ github_repo_pat_token }} --name {{ runner_name }} --work _work --labels {{ labels }} --runasservice --unattended
+  args:
+    chdir: "/home/{{ target_user }}/actions-runner"
+    creates: "/home/{{ target_user }}/actions-runner/.runner"
+  become_user: "{{ target_user }}"
+
+- name: GitHub Actions runner 서비스 설치
+  shell: ./svc.sh install
+  args:
+    chdir: "/home/{{ target_user }}/actions-runner"
+    creates: /etc/systemd/system/actions.runner.*
+
+- name: 잠시 대기 (서비스 설치 완료)
+  pause:
+    seconds: 5
+
+- name: GitHub Actions runner 서비스 시작
+  shell: ./svc.sh start
+  args:
+    chdir: "/home/{{ target_user }}/actions-runner"

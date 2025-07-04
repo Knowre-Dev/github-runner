@@ -1,0 +1,15 @@
+---
+- name: runner
+  hosts: instances
+  become: yes
+  roles:
+    - runner
+  vars:
+    github_repo_url: ""
+    github_repo_pat_token: "" # 비밀 토큰 입력
+    actions_runner_checksum: "" # 압축 해시 입력
+    runner_name: ""
+    labels: ""
+    actions_runner_version: ""
+    architecture: ""  # x64 또는 arm64
+    target_user: ""

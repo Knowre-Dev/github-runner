@@ -1,0 +1,9 @@
+---
+github_repo_url: ""
+github_repo_pat_token: ""
+runner_name: ""
+labels: ""
+actions_runner_version: ""
+architecture: ""  # x64 또는 arm64
+actions_runner_checksum: ""
+target_user: ""
