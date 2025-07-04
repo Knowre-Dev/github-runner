@@ -14,14 +14,6 @@
     groups: docker
     append: yes
 
-- name: 필수 패키지 설치 (git, make, curl)
-  yum:
-    name:
-      - git
-      - make
-      - curl
-    state: present
-
 - name: Microsoft 패키지 저장소 키 추가
   rpm_key:
     key: https://packages.microsoft.com/keys/microsoft.asc
